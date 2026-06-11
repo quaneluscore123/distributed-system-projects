@@ -45,7 +45,7 @@ func (r *Replicator) broadcast(req SyncRequest) {
 		return
 	}
 	data, _ := json.Marshal(req)
-	
+
 	client := &http.Client{
 		Timeout: 3 * time.Second, // Cài đặt Timeout 3 giây
 	}
@@ -56,7 +56,7 @@ func (r *Replicator) broadcast(req SyncRequest) {
 			maxRetries := 3
 			for i := 1; i <= maxRetries; i++ {
 				resp, err := client.Post(fmt.Sprintf("%s/sync", url), "application/json", bytes.NewReader(data))
-				
+
 				if err == nil {
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusOK {
@@ -65,9 +65,9 @@ func (r *Replicator) broadcast(req SyncRequest) {
 					}
 					err = fmt.Errorf("trạng thái phản hồi không hợp lệ: %d", resp.StatusCode)
 				}
-				
+
 				fmt.Printf("[Replication] Đồng bộ thất bại tới %s (lần thử %d/%d): %v\n", url, i, maxRetries, err)
-				
+
 				if i < maxRetries {
 					time.Sleep(1 * time.Second) // Chờ 1 giây trước khi retry
 				}
