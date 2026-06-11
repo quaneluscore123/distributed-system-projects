@@ -24,16 +24,16 @@ func NewServer(db *rosedb.DB, replicator *Replicator) *Server {
 		mux:        http.NewServeMux(),
 		startTime:  time.Now(),
 	}
-	
+
 	// API endpoints
 	s.mux.HandleFunc("/put", s.handlePut)
 	s.mux.HandleFunc("/get", s.handleGet)
 	s.mux.HandleFunc("/delete", s.handleDelete)
 	s.mux.HandleFunc("/health", s.handleHealth)
-	
+
 	// Internal sync endpoint for Master to call on Slaves
 	s.mux.HandleFunc("/sync", s.handleSync)
-	
+
 	return s
 }
 
