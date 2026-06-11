@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"runtime"
+	"time"
 
 	"github.com/rosedblabs/rosedb/v2"
 )
@@ -12,6 +14,7 @@ type Server struct {
 	db         *rosedb.DB
 	replicator *Replicator
 	mux        *http.ServeMux
+	startTime  time.Time
 }
 
 func NewServer(db *rosedb.DB, replicator *Replicator) *Server {
@@ -19,12 +22,14 @@ func NewServer(db *rosedb.DB, replicator *Replicator) *Server {
 		db:         db,
 		replicator: replicator,
 		mux:        http.NewServeMux(),
+		startTime:  time.Now(),
 	}
 	
 	// API endpoints
 	s.mux.HandleFunc("/put", s.handlePut)
 	s.mux.HandleFunc("/get", s.handleGet)
 	s.mux.HandleFunc("/delete", s.handleDelete)
+	s.mux.HandleFunc("/health", s.handleHealth)
 	
 	// Internal sync endpoint for Master to call on Slaves
 	s.mux.HandleFunc("/sync", s.handleSync)
@@ -148,4 +153,37 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("SYNC OK\n"))
+}
+
+type HealthResponse struct {
+	Status        string  `json:"status"`
+	Role          string  `json:"role"`
+	Uptime        string  `json:"uptime"`
+	MemoryAllocMB float64 `json:"memory_alloc_mb"`
+}
+
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	role := "SLAVE"
+	if s.replicator != nil {
+		role = "MASTER"
+	}
+
+	res := HealthResponse{
+		Status:        "OK",
+		Role:          role,
+		Uptime:        time.Since(s.startTime).Truncate(time.Second).String(),
+		MemoryAllocMB: float64(m.Alloc) / 1024 / 1024,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(res)
 }
