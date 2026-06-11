@@ -10,7 +10,7 @@
 
 ## What is ROSEDB
 
-rosedb is a lightweight, fast and reliable key/value storage engine based on [Bitcask](https://riak.com/assets/bitcask-intro.pdf) storage model.
+rosedb is a lightweight, fast and reliable key/value storage engine based on [Bitcask](https://riak.com/assets/bitcask-intro.pdf) storage model...
 
 The design of Bitcask was inspired, in part, by log-structured filesystems and log file merging.
 
