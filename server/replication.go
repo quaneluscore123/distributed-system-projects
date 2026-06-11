@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 // SyncRequest is the payload sent from Master to Slaves
@@ -44,13 +45,34 @@ func (r *Replicator) broadcast(req SyncRequest) {
 		return
 	}
 	data, _ := json.Marshal(req)
+	
+	client := &http.Client{
+		Timeout: 3 * time.Second, // Cài đặt Timeout 3 giây
+	}
+
 	for _, slave := range r.slaves {
 		// Send async to avoid blocking the main master response
 		go func(url string) {
-			_, err := http.Post(fmt.Sprintf("%s/sync", url), "application/json", bytes.NewReader(data))
-			if err != nil {
-				fmt.Printf("[Replication] failed to sync to %s: %v\n", url, err)
+			maxRetries := 3
+			for i := 1; i <= maxRetries; i++ {
+				resp, err := client.Post(fmt.Sprintf("%s/sync", url), "application/json", bytes.NewReader(data))
+				
+				if err == nil {
+					resp.Body.Close()
+					if resp.StatusCode == http.StatusOK {
+						// Đồng bộ thành công
+						return
+					}
+					err = fmt.Errorf("trạng thái phản hồi không hợp lệ: %d", resp.StatusCode)
+				}
+				
+				fmt.Printf("[Replication] Đồng bộ thất bại tới %s (lần thử %d/%d): %v\n", url, i, maxRetries, err)
+				
+				if i < maxRetries {
+					time.Sleep(1 * time.Second) // Chờ 1 giây trước khi retry
+				}
 			}
+			fmt.Printf("[Replication] LỖI: Bỏ cuộc đồng bộ tới %s sau %d lần thử.\n", url, maxRetries)
 		}(slave)
 	}
 }
