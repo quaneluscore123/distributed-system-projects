@@ -30,6 +30,7 @@ func main() {
 	dbPath := flag.String("dbpath", "/tmp/rosedb_server", "Path to store the database files")
 	slavesStr := flag.String("slaves", "", "Comma-separated list of slave URLs (e.g. http://localhost:8081)")
 	syncKey := flag.String("sync-key", "", "API Key for sync authentication")
+	masterURL := flag.String("master", "", "URL of the master node (e.g. http://localhost:8080) for heartbeat monitoring")
 	flag.Parse()
 
 	// Initialize RoseDB options
@@ -65,6 +66,11 @@ func main() {
 
 	// Create and start the server
 	srv := server.NewServer(db, replicator, *syncKey)
+
+	// Start heartbeat worker if master URL is provided (usually on Slave nodes)
+	if *masterURL != "" {
+		srv.StartHeartbeatWorker(*masterURL, 2*time.Second)
+	}
 
 	addr := fmt.Sprintf(":%d", *port)
 
