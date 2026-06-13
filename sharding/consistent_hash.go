@@ -107,4 +107,3 @@ func (r *ConsistentHashRing) GetNode(key string) string {
 func (r *ConsistentHashRing) IsEmpty() bool {
 	return len(r.keys) == 0
 }
-
