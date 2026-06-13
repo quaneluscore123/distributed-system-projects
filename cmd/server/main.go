@@ -29,6 +29,7 @@ func main() {
 	port := flag.Int("port", 8080, "Port to run the HTTP server on")
 	dbPath := flag.String("dbpath", "/tmp/rosedb_server", "Path to store the database files")
 	slavesStr := flag.String("slaves", "", "Comma-separated list of slave URLs (e.g. http://localhost:8081)")
+	syncKey := flag.String("sync-key", "", "API Key for sync authentication")
 	flag.Parse()
 
 	// Initialize RoseDB options
@@ -56,14 +57,14 @@ func main() {
 		for i := range slaves {
 			slaves[i] = strings.TrimSpace(slaves[i])
 		}
-		replicator = server.NewReplicator(slaves)
+		replicator = server.NewReplicator(slaves, *syncKey)
 		fmt.Printf("Running as MASTER with %d slaves\n", len(slaves))
 	} else {
 		fmt.Println("Running as Standalone or SLAVE node")
 	}
 
 	// Create and start the server
-	srv := server.NewServer(db, replicator)
+	srv := server.NewServer(db, replicator, *syncKey)
 
 	addr := fmt.Sprintf(":%d", *port)
 

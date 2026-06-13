@@ -15,14 +15,16 @@ type Server struct {
 	replicator *Replicator
 	mux        *http.ServeMux
 	startTime  time.Time
+	syncKey    string
 }
 
-func NewServer(db *rosedb.DB, replicator *Replicator) *Server {
+func NewServer(db *rosedb.DB, replicator *Replicator, syncKey string) *Server {
 	s := &Server{
 		db:         db,
 		replicator: replicator,
 		mux:        http.NewServeMux(),
 		startTime:  time.Now(),
+		syncKey:    syncKey,
 	}
 
 	// API endpoints
@@ -126,6 +128,14 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
+	}
+
+	if s.syncKey != "" {
+		key := r.Header.Get("X-Sync-Key")
+		if key != s.syncKey {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
 	}
 
 	body, err := io.ReadAll(r.Body)
