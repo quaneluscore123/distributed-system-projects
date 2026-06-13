@@ -66,9 +66,9 @@ func (r *Replicator) broadcast(req SyncRequest) {
 				if r.syncKey != "" {
 					reqHTTP.Header.Set("X-Sync-Key", r.syncKey)
 				}
-				
+
 				resp, err := client.Do(reqHTTP)
-				
+
 				if err == nil {
 					resp.Body.Close()
 					if resp.StatusCode == http.StatusOK {
