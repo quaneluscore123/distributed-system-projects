@@ -64,11 +64,18 @@ func TestFailoverPromotion(t *testing.T) {
 	// 5. Tắt Mock Master (Giả lập Master sập đột ngột)
 	mockMaster.Close()
 
-	// Đợi 250ms (đủ thời gian cho 3 lần thăm dò lỗi: 3 x 30ms = 90ms + trừ hao)
-	time.Sleep(200 * time.Millisecond)
+	// Chờ tối đa 1 giây cho Slave tự thăng cấp thành MASTER (polling mỗi 10ms)
+	success := false
+	for i := 0; i < 100; i++ {
+		if srvSlave.GetRole() == "MASTER" {
+			success = true
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 
 	// 6. Kiểm tra xem Slave đã tự động chuyển đổi sang MASTER chưa
-	if srvSlave.GetRole() != "MASTER" {
+	if !success {
 		t.Errorf("expected slave to self-promote to MASTER, but current role is %s", srvSlave.GetRole())
 	}
 
