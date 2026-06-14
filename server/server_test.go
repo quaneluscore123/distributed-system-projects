@@ -115,8 +115,8 @@ func TestHandleHealth(t *testing.T) {
 	if res.Status != "OK" {
 		t.Errorf("expected status OK, got %v", res.Status)
 	}
-	if res.Role != "SLAVE" { // No replicator = SLAVE or standalone
-		t.Errorf("expected role SLAVE, got %v", res.Role)
+	if res.Role != "MASTER" { // Standalone node allows read and write, so it is MASTER
+		t.Errorf("expected role MASTER, got %v", res.Role)
 	}
 }
 
