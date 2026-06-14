@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/rosedblabs/rosedb/v2"
@@ -16,6 +17,8 @@ type Server struct {
 	mux        *http.ServeMux
 	startTime  time.Time
 	syncKey    string
+	mu         sync.RWMutex
+	role       string // "MASTER" or "SLAVE"
 }
 
 func NewServer(db *rosedb.DB, replicator *Replicator, syncKey string) *Server {
@@ -25,6 +28,7 @@ func NewServer(db *rosedb.DB, replicator *Replicator, syncKey string) *Server {
 		mux:        http.NewServeMux(),
 		startTime:  time.Now(),
 		syncKey:    syncKey,
+		role:       "MASTER",
 	}
 
 	// API endpoints
@@ -43,7 +47,24 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
+func (s *Server) GetRole() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.role
+}
+
+func (s *Server) SetRole(role string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.role = role
+}
+
 func (s *Server) handlePut(w http.ResponseWriter, r *http.Request) {
+	if s.GetRole() != "MASTER" {
+		http.Error(w, "Forbidden: Only MASTER node can accept write requests", http.StatusForbidden)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -95,6 +116,11 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
+	if s.GetRole() != "MASTER" {
+		http.Error(w, "Forbidden: Only MASTER node can accept delete requests", http.StatusForbidden)
+		return
+	}
+
 	if r.Method != http.MethodDelete && r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -181,14 +207,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 
-	role := "SLAVE"
-	if s.replicator != nil {
-		role = "MASTER"
-	}
-
 	res := HealthResponse{
 		Status:        "OK",
-		Role:          role,
+		Role:          s.GetRole(),
 		Uptime:        time.Since(s.startTime).Truncate(time.Second).String(),
 		MemoryAllocMB: float64(m.Alloc) / 1024 / 1024,
 	}
