@@ -14,6 +14,7 @@ func printUsage() {
 	fmt.Println("  get <key>")
 	fmt.Println("  put <key> <value>")
 	fmt.Println("  delete <key>")
+	fmt.Println("  health")
 }
 
 func main() {
@@ -40,7 +41,11 @@ func main() {
 		}
 		defer resp.Body.Close()
 
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
 
 		fmt.Println(string(body))
 
@@ -64,7 +69,11 @@ func main() {
 		}
 		defer resp.Body.Close()
 
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
 
 		fmt.Println(string(body))
 
@@ -74,15 +83,38 @@ func main() {
 			return
 		}
 
-		req, _ := http.NewRequest(
+		req, err := http.NewRequest(
 			http.MethodDelete,
 			"http://localhost:8080/delete?key="+os.Args[2],
 			nil,
 		)
 
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+
 		client := &http.Client{}
 
 		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+
+		fmt.Println(string(body))
+
+	case "health":
+		resp, err := http.Get(
+			"http://localhost:8080/health",
+		)
 
 		if err != nil {
 			fmt.Println("Error:", err)
@@ -90,7 +122,11 @@ func main() {
 		}
 		defer resp.Body.Close()
 
-		body, _ := io.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
 
 		fmt.Println(string(body))
 
