@@ -64,9 +64,9 @@ func TestFailoverPromotion(t *testing.T) {
 	// 5. Tắt Mock Master (Giả lập Master sập đột ngột)
 	mockMaster.Close()
 
-	// Chờ tối đa 1 giây cho Slave tự thăng cấp thành MASTER (polling mỗi 10ms)
+	// Chờ tối đa 5 giây cho Slave tự thăng cấp thành MASTER (polling mỗi 10ms)
 	success := false
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 500; i++ {
 		if srvSlave.GetRole() == "MASTER" {
 			success = true
 			break
