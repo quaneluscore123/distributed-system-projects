@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"runtime"
+	"sync"
+	"time"
 
 	"github.com/rosedblabs/rosedb/v2"
 )
@@ -12,23 +15,31 @@ type Server struct {
 	db         *rosedb.DB
 	replicator *Replicator
 	mux        *http.ServeMux
+	startTime  time.Time
+	syncKey    string
+	mu         sync.RWMutex
+	role       string // "MASTER" or "SLAVE"
 }
 
-func NewServer(db *rosedb.DB, replicator *Replicator) *Server {
+func NewServer(db *rosedb.DB, replicator *Replicator, syncKey string) *Server {
 	s := &Server{
 		db:         db,
 		replicator: replicator,
 		mux:        http.NewServeMux(),
+		startTime:  time.Now(),
+		syncKey:    syncKey,
+		role:       "MASTER",
 	}
-	
+
 	// API endpoints
 	s.mux.HandleFunc("/put", s.handlePut)
 	s.mux.HandleFunc("/get", s.handleGet)
 	s.mux.HandleFunc("/delete", s.handleDelete)
-	
+	s.mux.HandleFunc("/health", s.handleHealth)
+
 	// Internal sync endpoint for Master to call on Slaves
 	s.mux.HandleFunc("/sync", s.handleSync)
-	
+
 	return s
 }
 
@@ -36,7 +47,24 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mux.ServeHTTP(w, r)
 }
 
+func (s *Server) GetRole() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.role
+}
+
+func (s *Server) SetRole(role string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.role = role
+}
+
 func (s *Server) handlePut(w http.ResponseWriter, r *http.Request) {
+	if s.GetRole() != "MASTER" {
+		http.Error(w, "Forbidden: Only MASTER node can accept write requests", http.StatusForbidden)
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -88,6 +116,11 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
+	if s.GetRole() != "MASTER" {
+		http.Error(w, "Forbidden: Only MASTER node can accept delete requests", http.StatusForbidden)
+		return
+	}
+
 	if r.Method != http.MethodDelete && r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -123,6 +156,14 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.syncKey != "" {
+		key := r.Header.Get("X-Sync-Key")
+		if key != s.syncKey {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+	}
+
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read body", http.StatusBadRequest)
@@ -148,4 +189,32 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("SYNC OK\n"))
+}
+
+type HealthResponse struct {
+	Status        string  `json:"status"`
+	Role          string  `json:"role"`
+	Uptime        string  `json:"uptime"`
+	MemoryAllocMB float64 `json:"memory_alloc_mb"`
+}
+
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	res := HealthResponse{
+		Status:        "OK",
+		Role:          s.GetRole(),
+		Uptime:        time.Since(s.startTime).Truncate(time.Second).String(),
+		MemoryAllocMB: float64(m.Alloc) / 1024 / 1024,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(res)
 }

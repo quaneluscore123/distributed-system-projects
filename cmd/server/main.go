@@ -29,6 +29,8 @@ func main() {
 	port := flag.Int("port", 8080, "Port to run the HTTP server on")
 	dbPath := flag.String("dbpath", "/tmp/rosedb_server", "Path to store the database files")
 	slavesStr := flag.String("slaves", "", "Comma-separated list of slave URLs (e.g. http://localhost:8081)")
+	syncKey := flag.String("sync-key", "", "API Key for sync authentication")
+	masterURL := flag.String("master", "", "URL of the master node (e.g. http://localhost:8080) for heartbeat monitoring")
 	flag.Parse()
 
 	// Initialize RoseDB options
@@ -56,17 +58,22 @@ func main() {
 		for i := range slaves {
 			slaves[i] = strings.TrimSpace(slaves[i])
 		}
-		replicator = server.NewReplicator(slaves)
+		replicator = server.NewReplicator(slaves, *syncKey)
 		fmt.Printf("Running as MASTER with %d slaves\n", len(slaves))
 	} else {
 		fmt.Println("Running as Standalone or SLAVE node")
 	}
 
 	// Create and start the server
-	srv := server.NewServer(db, replicator)
-	
+	srv := server.NewServer(db, replicator, *syncKey)
+
+	// Start heartbeat worker if master URL is provided (usually on Slave nodes)
+	if *masterURL != "" {
+		srv.StartHeartbeatWorker(*masterURL, 2*time.Second)
+	}
+
 	addr := fmt.Sprintf(":%d", *port)
-	
+
 	httpSrv := &http.Server{
 		Addr:    addr,
 		Handler: loggingMiddleware(srv),
@@ -97,10 +104,10 @@ func main() {
 	// the request it is currently handling
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	if err := httpSrv.Shutdown(ctx); err != nil {
 		log.Fatal("Server forced to shutdown:", err)
 	}
-	
+
 	log.Println("Server exiting gracefully")
 }
