@@ -36,6 +36,7 @@ func NewServer(db *rosedb.DB, replicator *Replicator, syncKey string) *Server {
 	s.mux.HandleFunc("/get", s.handleGet)
 	s.mux.HandleFunc("/delete", s.handleDelete)
 	s.mux.HandleFunc("/health", s.handleHealth)
+	s.mux.HandleFunc("/admin", s.handleAdmin)
 
 	// Internal sync endpoint for Master to call on Slaves
 	s.mux.HandleFunc("/sync", s.handleSync)
