@@ -36,6 +36,7 @@ func NewServer(db *rosedb.DB, replicator *Replicator, syncKey string) *Server {
 	s.mux.HandleFunc("/get", s.handleGet)
 	s.mux.HandleFunc("/delete", s.handleDelete)
 	s.mux.HandleFunc("/health", s.handleHealth)
+	s.mux.HandleFunc("/keys", s.handleKeys)
 	s.mux.HandleFunc("/admin", s.handleAdmin)
 
 	// Internal sync endpoint for Master to call on Slaves
@@ -218,4 +219,26 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	_ = json.NewEncoder(w).Encode(res)
+}
+
+func (s *Server) handleKeys(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var keys []string
+	err := s.db.AscendKeys(nil, true, func(k []byte) (bool, error) {
+		keys = append(keys, string(k))
+		return true, nil
+	})
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(keys)
 }
