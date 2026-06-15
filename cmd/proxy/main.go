@@ -70,7 +70,7 @@ func main() {
 func forwardRequest(targetNode string, w http.ResponseWriter, r *http.Request) {
 	// Trim trailing slash from target node if exists
 	targetNode = strings.TrimRight(targetNode, "/")
-	
+
 	// Construct the target URL
 	targetURL := fmt.Sprintf("%s%s", targetNode, r.URL.RequestURI())
 
