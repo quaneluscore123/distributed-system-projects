@@ -139,8 +139,17 @@ func forwardRequest(targetNode string, w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Forwarding %s request to: %s", r.Method, targetURL)
 
+	// Reconstruct body if it's POST/DELETE/PUT because r.FormValue() consumed r.Body
+	var bodyReader io.Reader = r.Body
+	if r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete {
+		_ = r.ParseForm()
+		if len(r.PostForm) > 0 {
+			bodyReader = strings.NewReader(r.PostForm.Encode())
+		}
+	}
+
 	// Create a new request based on the incoming one
-	proxyReq, err := http.NewRequest(r.Method, targetURL, r.Body)
+	proxyReq, err := http.NewRequest(r.Method, targetURL, bodyReader)
 	if err != nil {
 		http.Error(w, "Error creating proxy request", http.StatusInternalServerError)
 		return
