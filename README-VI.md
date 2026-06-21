@@ -9,6 +9,16 @@
 
 *Bài tập lớn môn Phát triển Hệ thống Phân tán – Nhóm 6 – Đại học Phenikaa*
 
+---
+
+### 📺 Video Demo Vận Hành Hệ Thống
+> [!TIP]
+> Dưới đây là video demo chạy thực tế toàn bộ hệ thống (quá trình biên dịch, đồng bộ replication, tự thăng cấp chịu lỗi failover và di cư dữ liệu nóng consistent hashing):
+> 
+> [kéo_thả_tệp_Demo.mp4_của_bạn_vào_đây_khi_sửa_trên_github]
+
+---
+
 </div>
 
 ---
