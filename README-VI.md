@@ -15,7 +15,7 @@
 > [!TIP]
 > Dưới đây là video demo chạy thực tế toàn bộ hệ thống (quá trình biên dịch, đồng bộ replication, tự thăng cấp chịu lỗi failover và di cư dữ liệu nóng consistent hashing):
 > 
-> [kéo_thả_tệp_Demo.mp4_của_bạn_vào_đây_khi_sửa_trên_github]
+> https://drive.google.com/file/d/1Uq3o191Zev-l-cNzX604RizMRjVoCTQi/view?usp=drive_link
 
 ---
 
